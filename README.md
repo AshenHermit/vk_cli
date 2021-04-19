@@ -1,3 +1,3 @@
 # vk_cli
 
-![screenshot](https://sun9-60.userapi.com/impg/2WrntynzH0v4IopatPZbqHUMNiEA-JWEJQaE5Q/szT3PPIZ91Y.jpg?size=1642x872&quality=96&sign=0fb84c2b3ab4c4c19effc91675670e08&type=album)
+![screenshot](https://sun9-12.userapi.com/impg/huMKhazegG6RZ-PUKNuK6ceSdKwz_9KshVnUCw/NVn4cpeU6WQ.jpg?size=1635x894&quality=96&sign=129d4ec23d1f40c605b0e377bafbcd3c&type=album)
