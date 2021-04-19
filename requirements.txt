@@ -1,0 +1,3 @@
+reuqests
+lxml
+beautifulsoup4

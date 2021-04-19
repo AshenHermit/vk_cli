@@ -18,6 +18,8 @@ class VkSession(object):
         self.password = password
         self.hashes = {}
         self.auth()
+
+        self.users = {}
         
     def auth(self):
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36',
@@ -46,7 +48,9 @@ class VkSession(object):
         for i in params:
             data["param_"+i] = params[i]
         answer = self.post_act('https://vk.com/dev', 'a_run_method', data)
-        return json.loads(answer[0])['response']
+        res = None
+        res = json.loads(answer[0])['response']
+        return res
     
     def _get_hash(self,method):
         success = False
@@ -72,3 +76,21 @@ class VkSession(object):
             result = res.text.replace("<!--", "")
             result = json.loads(result)['payload'][-1]
             return result
+
+    def load_profiles(self, ids):
+        ids = list(filter(lambda id: id not in self.users, ids))
+        if len(ids)>0:
+            users = self.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))), extended=1, fields='screen_name')
+            for user in users:
+                self.users[str(user['id'])] = user
+                if 'deactivated' in user: 
+                    user['screen_name'] = 'id'+str(user['id'])
+                self.users[str(user['screen_name'])] = user
+
+    def get_user_profile(self, id):
+        id = str(id)
+        if id not in self.users:
+            self.load_profiles([id])
+        return self.users[id]
+
+

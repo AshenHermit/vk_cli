@@ -32,49 +32,53 @@ def register_command(func=None, self=None, id='_', help='no information'):
 
     @wraps(func)
     def wrapper(args):
-        # print(f"calling {id} with {args}")
         func(args)
 
-    print(f"registering {id}")
     self._commands[id] = wrapper
     self._commands_help[id] = help
         
     return wrapper
 
 
-class Plugin(object):
+class CommandAgent():
     def __init__(self):
-        self.id = '_base'
-        self.vk_cli : app.VK_CLI = None
-        self.vk_api : app.VkSession = None
         self._commands = {}
         self._commands_help = {}
         self.initialize_commands_decorators()
     
-    def startup(self):
-        print(f"{self.id} plugin loaded")
-
-    # @classmethod
-    # def register_command(func, self, id, help="no information", ):
-    #     self._commands[id] = func
-    #     def _impl(args):
-    #         print(f"calling {id} with {args}")
-    #         func(args)
-    #     return _impl
-
-    def help_print(self, command):
+    def _help_print(self, command):
         print( f"  {command} : {self._commands_help[command]}" )
 
     def _call_command(self, args):
         print()
-        if len(args)>0:
-            if args[0] == "help":
-                if len(args)>1 and args[1] in self._commands_help:
-                    self.help_print(args[1])
+        try:
+            if len(args)>0:
+                if args[0] == "help" and len(args)>1 and args[1] in self._commands_help:
+                    self._help_print(args[1])
+                    return
 
-            elif args[0] in self._commands:
-                self._commands[args[0]](args[1:])
+                elif args[0] in self._commands:
+                    self._commands[args[0]](args[1:])
+
+        except Exception as err:
+            # raise err
+            print(f"[COMMAND EXECUTION ERROR] {err}")
+
         print()
 
     def initialize_commands_decorators(self):
         pass
+
+
+
+class Plugin(CommandAgent):
+    def __init__(self):
+        self.id = '_base'
+        self.vk_cli : app.VK_CLI = None
+        self.vk_api : app.VkSession = None
+
+        super().__init__()
+    
+    def startup(self):
+        print(f"{self.id} plugin loaded")
+    

@@ -2,7 +2,8 @@ from cmd import Cmd
 import json
 from pathlib import Path
 from app._vk_api import VkSession, invalid_password
-from app.plugin_utils import load_plugins
+from app.plugin_utils import load_plugins, register_command, CommandAgent
+from app.utils import *
 import re
 
 class Prompt(Cmd):
@@ -69,14 +70,13 @@ class Prompt(Cmd):
     def do_exit(self, inp):
         return True
 
-class VK_CLI():
+class VK_CLI(CommandAgent):
     def __init__(self):
         print("initializng vk cli...")
 
         self.prompt = Prompt(self.on_input)
 
         self.vk_api : VkSession = None
-        self.users = {}
 
         self.settings_file_path = "settings.json"
         self.settings = {
@@ -88,6 +88,8 @@ class VK_CLI():
 
         self.last_used_plugin_id = ""
 
+        super().__init__()
+
     def start(self):
         self.load_settings()
         self.startup_log_in()
@@ -95,17 +97,6 @@ class VK_CLI():
         try: self.prompt.cmdloop()
         except KeyboardInterrupt:
             print("[Keyboard Interrupt]")
-
-    def load_profiles(self, ids):
-        users = self.vk_api.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))))
-        for user in users:
-            self.users[str(user['id'])] = user
-
-    def get_user_profile(self, id):
-        id = str(id)
-        if id not in self.users:
-            self.load_profiles([id])
-        return self.users[id]
 
     def load_settings(self):
         settings_path = Path(self.settings_file_path)
@@ -146,8 +137,14 @@ class VK_CLI():
         self.load_plugins()
         return "successfully authorized"
 
-    def help_print(self):
+    def cli_help_print(self):
         print()
+
+        print("global commands:")
+        for command_id in self._commands.keys():
+            self._help_print(command_id)
+        print()
+
         print("plugins list:")
         for plugin in self.plugins:
             print(f"  {plugin.id}")
@@ -157,19 +154,72 @@ class VK_CLI():
             print(f"{self.last_used_plugin_id} commands list:")
             last_plugin = self.plugin_by_id[self.last_used_plugin_id]
             for command_id in last_plugin._commands.keys():
-                last_plugin.help_print(command_id)
+                last_plugin._help_print(command_id)
         
         print()
 
+    def add_new_plugin(self, id):
+        id = id.replace(" ", "_")
+
+        if id in self.plugin_by_id:
+            print(f"plugin with name '_{id}' already exists, choose another")
+            return
+
+        plugin_file_content = f'''from app import *
+import datetime
+
+class {to_camel_case(id)}(Plugin):
+    def __init__(self):
+        super().__init__()
+        self.id = "_{id}"
+
+    def initialize_commands_decorators(self):
+        @register_command(self=self, id='cmd',
+            help="cmd : 'cmd'")
+        def cmd_cmd(args):
+            pass'''
+
+        init_file_content = f"from .{id}_plugin import *"
+        plugin_folder_path = f"{self.settings['plugins_path']}/{id}"
+        init_file_name = f"{plugin_folder_path}/__init__.py"
+        plugin_file_name = f"{plugin_folder_path}/{id}_plugin.py"
+        
+        
+        if Path(plugin_folder_path).exists():
+            print("plugin folder already exitsts")
+            return
+
+        Path(init_file_name[:init_file_name.rfind("/")]).mkdir()
+        with open(init_file_name, 'w+') as file:
+            file.write(init_file_content)
+        with open(plugin_file_name, 'w+') as file:
+            file.write(plugin_file_content)
+
+        print(f'plugin "{id}" successfully created, dont forget to restart CLI')
+        open_file_in_editor(plugin_file_name)
+        
+
+    def initialize_commands_decorators(self):
+        @register_command(self=self, id='..',
+            help="unselect plugin : ' .. '")
+        def unselect_plugin_cmd(args):
+            self.prompt.set_path("")
+            self.last_used_plugin_id = None
+
+        @register_command(self=self, id='help',
+            help="show commands and plugins overview : ' help '")
+        def help_cmd(args):
+            self.cli_help_print()
+
+        @register_command(self=self, id='new_plugin',
+            help="create new plugin : ' new_plugin <plugin name, ex. \"cool_tools\"> '")
+        def new_plugin_cmd(args):
+            self.add_new_plugin(args[0])
 
     def prompt_input(self, args):
         if len(args)>0:
-            if args[0] == "..":
-                self.prompt.set_path("")
-                self.last_used_plugin_id = None
-
-            elif args[0] == "help":
-                self.help_print()
+            if args[0] in self._commands:
+                self._call_command(args)
 
             elif args[0] in self.plugin_by_id:
                 self.last_used_plugin_id = args[0]
@@ -189,7 +239,7 @@ class VK_CLI():
                 return
         
         print("please, log in with command 'login <email/phone> <password>'")
-
+        
         
     def on_input(self, args):
         if self.vk_api:
