@@ -2,6 +2,8 @@ import datetime
 import re
 import subprocess
 import os
+import urllib
+
 
 def string_with_fixed_length(string, length):
     while len(string) < length:
@@ -47,3 +49,12 @@ def open_file_in_editor(filepath):
         pass
 
     os.system(f'explorer {os.path.abspath(folder_path)}')
+
+
+def encode_uri_component(text):
+    text = urllib.parse.quote(text, safe='~()*!.\'')
+    return text
+
+def decode_uri_component(text):
+    text = urllib.parse.unquote('awd%20awd%20')
+    return text

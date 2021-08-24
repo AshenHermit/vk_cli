@@ -31,7 +31,7 @@ class VkSession(object):
         self.session = requests.session()
         data = self.session.get('https://vk.com/', headers=headers)
         page = lxml.html.fromstring(data.content)
-        form = page.forms[0]
+        form = page.forms[1]
         form.fields['email'] = self.login
         form.fields['pass'] = self.password
         response = self.session.post(form.action, data=form.form_values())
