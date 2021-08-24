@@ -25,6 +25,10 @@ def get_formated_date(timestampt):
 def get_now_formated_date():
     return get_formated_date(datetime.datetime.now().timestamp())
 
+def is_http_url(text):
+    if not type(text) is str: return False
+    text = text.strip()
+    return text[0:4] == "http"
 
 def to_camel_case(text):
     text = text.replace(" ", "_")

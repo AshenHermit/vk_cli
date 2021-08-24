@@ -19,6 +19,13 @@ class MessagesPlugin(Plugin):
         print(f"--- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --- {user['last_name'] + ' ' + user['first_name']} --")
         print(f"  {text}")
         print("------------")
+    
+    def get_conversation_id_by_selection(self, selection):
+        if len(str(selection)) <= 3:
+            if len(self.conversations) < 1: 
+                self._call_command(["browse"])
+            selection = self.conversations[selection]['id']
+        return selection
 
     def initialize_commands_decorators(self):
 
@@ -38,15 +45,12 @@ class MessagesPlugin(Plugin):
         @register_command(self=self, id='chat',
             help="enter conversation : 'chat <conv index / conv id>'")
         def read_cmd(args):
+            #TODO: needs reefactor
             if len(args)==0:
                 self._help_print('chat')
                 return
 
-            selected_conv = int(args[0])
-            if len(str(selected_conv)) <= 3:
-                if len(self.conversations) < 1: 
-                    self._call_command(["browse"])
-                selected_conv = self.conversations[selected_conv]['id']
+            selected_conv = self.get_conversation_id_by_selection(int(args[0]))
 
             self.selected_conv_id = selected_conv
             selected_conv = self.conversation_by_id[self.selected_conv_id]
@@ -83,13 +87,18 @@ class MessagesPlugin(Plugin):
                 self.print_message(datetime.datetime.now().timestamp(), 0, ",".join(attachments))
 
         @register_command(self=self, id='get_members_sites',
-            help="help TODO: get members sites : ' get_members_sites '")
+            help="help TODO: get members sites : ' get_members_sites [<conv index / conv id>]'")
         def get_members_sites_cmd(args):
-            if self.selected_conv_id:
-                users_ids = self.vk_api.method('messages.getConversationMembers', peer_id=self.selected_conv_id)['items']
+            #TODO: needs reefactor
+            selected_conv = self.selected_conv_id
+            if len(args)>0:
+                selected_conv = self.get_conversation_id_by_selection(int(args[0]))
+            
+            if selected_conv:
+                users_ids = self.vk_api.method('messages.getConversationMembers', peer_id=selected_conv)['items']
                 users_ids = list(map(lambda x: str(x["member_id"]), users_ids))
                 users_ids = list(filter(lambda x: int(x)>0, users_ids))
-                users = self.vk_api.method('users.get', user_ids=",".join(users_ids), fields="site")
+                users = self.vk_api.method('users.get', user_ids=",".join(users_ids), fields="site,occupation")
 
                 column_sizes = [12,30,10]
 
@@ -107,11 +116,16 @@ class MessagesPlugin(Plugin):
                     return False
 
                 for user in users:
-                    if not "site" in user: continue
+                    site_url = ""
+                    if "site" in user: 
+                        site_url = user["site"].strip()
+                    if "occupation" in user:
+                        if is_http_url(user["occupation"]['name']): site_url = user["occupation"]['name'].strip()
 
-                    site_url = user["site"].strip()
+                    if site_url=="": continue
+
                     if not "deactivated" in user and not user["is_closed"] \
-                        and site_url != "" and site_url[0:4] == "http" \
+                        and site_url != "" and is_http_url(site_url) \
                             and not is_execluding(site_url, execludes):
                         
                         line = ""
