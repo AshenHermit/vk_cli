@@ -1,4 +1,4 @@
-from app import *
+from hermit_vk_api import *
 import datetime
 import m3u8
 

@@ -1,10 +1,11 @@
 from cmd import Cmd
 import json
 from pathlib import Path
-from app._vk_api import VkSession, invalid_password
-from app.plugin_utils import load_plugins, register_command, CommandAgent
-from app.utils import *
+from hermit_vk_api._vk_api import VkSession, invalid_password
+from hermit_vk_api.plugin_utils import load_plugins, register_command, CommandAgent
+from hermit_vk_api.utils import *
 import re
+import shlex
 
 class Prompt(Cmd):
     def __init__(self, on_input):
@@ -19,7 +20,7 @@ class Prompt(Cmd):
     def set_path(self, path):
         self.prompt = self.prompt_prefix + ("" if path=="" else " ") + path + self.prompt_postfix
 
-    def text_to_args(self, text):
+    def text_to_args_old(self, text):
         break_indices = []
         pat = re.compile(r'".*?"')
         match = pat.search(text)
@@ -59,6 +60,10 @@ class Prompt(Cmd):
 
         return args
 
+    def text_to_args(self, text):
+        args = shlex.split(text)
+        return args
+
     def default(self, inp):
         args = self.text_to_args(inp)
         self.on_input(args)
@@ -80,7 +85,8 @@ class VK_CLI(CommandAgent):
 
         self.settings_file_path = "settings.json"
         self.settings = {
-            'plugins_path': 'app/plugins'
+            'plugins_path': 'hermit_vk_api/plugins',
+            'chromedriver_path': 'chromedriver/chromedriver.exe'
         }
 
         self.plugins = []
@@ -102,12 +108,13 @@ class VK_CLI(CommandAgent):
         settings_path = Path(self.settings_file_path)
 
         if settings_path.exists():
-            loaded_settings = json.loads(settings_path.read_text())
-            if loaded_settings:
-                z = self.settings.copy()
-                z.update(loaded_settings)
-                self.settings = z
-
+            try:
+                loaded_settings = json.loads(settings_path.read_text())
+                if loaded_settings:
+                    settings_copy = self.settings.copy()
+                    settings_copy.update(loaded_settings)
+                    self.settings = settings_copy
+            except: pass
         self.save_settings()
 
     def load_plugins(self):
@@ -115,7 +122,7 @@ class VK_CLI(CommandAgent):
             self.plugins = load_plugins(self.settings['plugins_path'], self, self.vk_api)
             for plugin in self.plugins:
                 self.plugin_by_id[plugin.id] = plugin
-                
+        
 
     def save_settings(self):
         settings_path = Path(self.settings_file_path)
@@ -129,7 +136,7 @@ class VK_CLI(CommandAgent):
         self.settings['email'] = email
         self.settings['password'] = password
         try:
-            self.vk_api = VkSession(self.settings['email'], self.settings['password'])
+            self.vk_api = VkSession(self.settings['email'], self.settings['password'], chromedriver_path=self.settings['chromedriver_path'])
         except invalid_password:
             return "invalid authorization"
 
@@ -202,18 +209,24 @@ class {to_camel_case(id)}(Plugin):
     def initialize_commands_decorators(self):
         @register_command(self=self, id='..',
             help="unselect plugin : ' .. '")
-        def unselect_plugin_cmd(args):
+        def unselect_plugin_cmd(*args):
             self.prompt.set_path("")
             self.last_used_plugin_id = None
 
         @register_command(self=self, id='help',
             help="show commands and plugins overview : ' help '")
-        def help_cmd(args):
+        def help_cmd(*args):
             self.cli_help_print()
+
+        @register_command(self=self, id='reload',
+            help="hot reload plugins : ' reload '")
+        def reload_cmd(*args):
+            self.load_plugins()
+            print("plugins reloaded")
 
         @register_command(self=self, id='new_plugin',
             help="create new plugin : ' new_plugin <plugin name, ex. \"cool_tools\"> '")
-        def new_plugin_cmd(args):
+        def new_plugin_cmd(*args):
             self.add_new_plugin(args[0])
 
     def prompt_input(self, args):
@@ -228,8 +241,6 @@ class {to_camel_case(id)}(Plugin):
 
             elif self.last_used_plugin_id in self.plugin_by_id:
                 self.plugin_by_id[self.last_used_plugin_id]._call_command(args[:])
-
-                
 
     def unauthorized_input(self, args):
         if args[0] == "login":

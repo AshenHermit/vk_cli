@@ -23,7 +23,7 @@ class Launcher():
 
         @self.register_operation(id="run")
         def run_operation():
-            from app import run
+            from hermit_vk_api import run
             # print("run operation")
             run()
 

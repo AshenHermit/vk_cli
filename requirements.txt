@@ -1,4 +1,7 @@
-reuqests
+requests
 lxml
 beautifulsoup4
 m3u8
+selenium
+vk_api
+tqdm

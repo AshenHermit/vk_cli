@@ -1,3 +1,5 @@
 __pycache__/
 settings.json
 .vscode/
+vk_config.v2.json
+chromedriver/chromedriver.exe

@@ -1,4 +1,4 @@
-from app import *
+from hermit_vk_api import *
 
 class UsersPlugin(Plugin):
     def __init__(self):
