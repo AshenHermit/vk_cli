@@ -85,7 +85,7 @@ def make_dirs(path:Path)->Path:
 def get_existing_path(path:str) -> Path:
     path = Path(path).expanduser().resolve()
     if not path.exists():
-        os.makedirs(str(path), exist_ok=True)
+        make_dirs(path)
     return path
 
 def normalize_filepath_name(filepath:Path):

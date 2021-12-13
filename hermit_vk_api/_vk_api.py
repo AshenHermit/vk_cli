@@ -179,15 +179,18 @@ class VkSession(object):
         self.users = {}
         self.chromedriver_path = chromedriver_path
 
+        self.app_id = 6121396 # vk admin
+        self.scope = 1073737727
+
         self.auth()
 
-    def auth(self):
+    def get_token_with_implicit_flow(self):
         # 1073737727
         executable_path = (Path(__file__) / ("../"+self.chromedriver_path)).resolve()
         # 'chromedriver.exe' executable needs to be in PATH. Please see https://sites.google.com/a/chromium.org/chromedriver/home
         driver = Chrome()
-        app_id = 6121396 # vk admin
-        scope = 1073737727
+        app_id = self.app_id
+        scope = self.scope
         url = f"https://oauth.vk.com/authorize?client_id={app_id}&scope={scope}&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
         driver.get(url)
         inputs = driver.find_elements_by_class_name("oauth_form_input")
@@ -198,8 +201,35 @@ class VkSession(object):
         access_token = urllib.parse.parse_qs(urllib.parse.urlsplit(driver.current_url).fragment)["access_token"][0]
         driver.close()
 
-        self.vk_session = VkApi(login=self.login, password=self.password, app_id=app_id, token=access_token, captcha_handler=self.captcha_handler)
+        return access_token
 
+    def get_vk_config_path(self):
+        filepath = (Path(__file__) / '../../vk_config.v2.json').resolve()
+        return filepath
+
+    def get_token_from_vk_config(self):
+        filepath = self.get_vk_config_path()
+        with filepath.open("r", encoding="utf-8") as file:
+            config = json.load(file)
+        try:
+            
+            app_key = f"app{self.app_id}"
+            app = config[self.login]["token"][app_key]
+            scopes = list(app.values())
+            return scopes[0]["access_token"]
+        except:
+            traceback.print_exc()
+            print("removing vk config file")
+            os.remove(filepath.as_posix())
+        return None
+
+
+    def auth(self):
+        access_token = self.get_token_from_vk_config()
+        if access_token is None:
+            access_token = self.get_token_with_implicit_flow()
+        
+        self.vk_session = VkApi(login=self.login, password=self.password, app_id=self.app_id, token=access_token, captcha_handler=self.captcha_handler)
         try:
             self.vk_session.auth()
         except Exception as e:
@@ -226,12 +256,17 @@ class VkSession(object):
     def load_profiles(self, ids:list[int] or list[str]):
         ids = list(filter(lambda id: id not in self.users, ids))
         if len(ids)>0:
-            users = self.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))), extended=1, fields='screen_name')
-            for user in users:
+            users = self.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))), extended=1, fields='screen_name,photo_max_orig,photo_id')
+            photos = self.method("photos.getById", photos=",".join(list(map(lambda x: x['photo_id'], users))))
+            
+            for i,user in enumerate(users):
                 self.users[str(user['id'])] = user
                 if 'deactivated' in user: 
                     user['screen_name'] = 'id'+str(user['id'])
+                photo_res = Resource.from_photo(photos[i])
+                user['photo_url'] = photo_res.url
                 self.users[str(user['screen_name'])] = user
+
 
     def get_user_profile(self, id:int or str):
         id = str(id)

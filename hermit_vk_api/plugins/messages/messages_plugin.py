@@ -45,12 +45,42 @@ class MessagesPlugin(Plugin):
                 user = self.vk_api.get_user_profile(conv['peer']['id'])
                 title = user['first_name'] + " " + user['last_name']
             conv['title'] = title
-    
-    def print_message(self, date, peer_id, text):
-        user = self.vk_api.get_user_profile(peer_id) if peer_id != 0 else {'last_name': '', 'first_name': 'Me'}
-        print(f"--- {user['last_name'] + ' ' + user['first_name']} --- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --")
-        print(f"  {text}")
-        print("------------")
+
+    def attachments_to_text(self, attachments):
+        text = ""
+        for attach in attachments:
+            res = Resource.from_attachment(attach)
+            text += f"{res.media_type} : {res.name} : {res.url}"
+            if attach != attachments[-1]:
+                text+="\n"
+        return text
+
+    def print_message_to_str(self, message, indent=0):
+        idntl = 4
+        sidnt = " "*indent
+        date = message['date']
+        content = "  "+message['text'].replace("\n", "\n"+sidnt+"  ")
+        if len(message['attachments'])>0:
+            content += f"\n{sidnt}  "+self.attachments_to_text(message['attachments'])
+        if 'fwd_messages' in message and len(message['fwd_messages'])>0:
+            fwd_messages = message['fwd_messages']
+            content += f"\n{sidnt}{' '*idntl}[forwarded messages]:\n"
+            for fwd in fwd_messages:
+                content += self.print_message_to_str(fwd, indent+idntl)
+                if fwd != fwd_messages[-1]: content+="\n"
+
+        user_id = message['from_id']
+
+        user = self.vk_api.get_user_profile(user_id) if user_id != 0 else {'last_name': '', 'first_name': 'Me'}
+        text = ""
+        text+= f"{sidnt}--- {user['last_name'] + ' ' + user['first_name']} --- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --"
+        text+= f"\n{sidnt}{content}"
+        text+= f"\n{sidnt}------------"
+        return text
+
+    def print_message(self, message):
+        text = self.print_message_to_str(message)
+        print(text)
     
     def get_conversation_id_by_selection(self, selection):
         if len(selection) <= 3:
@@ -104,20 +134,19 @@ class MessagesPlugin(Plugin):
             self.vk_api.load_profiles( {message['from_id']: 0 for message in self.messages}.keys() )
 
             for message in self.messages:
-                date = message['date']
-                text = message['text']
-                if len(message['attachments'])>0:
-                    text += "\n" + json.dumps(message['attachments'])
-                user_id = message['from_id']
-                
-                self.print_message(date, user_id, text)
+                self.print_message(message)
 
         @register_command(self=self, id='send',
             help="send message : ' send \"<message>\" '")
         def send_cmd(message):
             if self.selected_conv_id:
                 self.vk_api.method('messages.send', peer_id=self.selected_conv_id, message=message, random_id=0)
-                self.print_message(datetime.datetime.now().timestamp(), 0, message)
+                mes_data = {
+                    "date": datetime.datetime.now().timestamp(), 
+                    "text": message, 
+                    "from_id": 0,
+                    "attachments": []}
+                self.print_message(mes_data)
         
         @register_command(self=self, id='send_raw_attachments',
             help="send raw attachments : ' send \"<attachments>\" '")
@@ -125,7 +154,12 @@ class MessagesPlugin(Plugin):
             if self.selected_conv_id:
                 attachments = args[:]
                 self.vk_api.method('messages.send', peer_id=self.selected_conv_id, message="", random_id=0, attachment=",".join(attachments))
-                self.print_message(datetime.datetime.now().timestamp(), 0, ",".join(attachments))
+                mes_data = {
+                    "date": datetime.datetime.now().timestamp(), 
+                    "text": "", 
+                    "from_id": 0, 
+                    "attachments": attachments}
+                self.print_message(mes_data)
 
         @register_command(self=self, id='get_members_sites',
             help="help TODO: get members sites : ' get_members_sites [<conv index / conv id>] '")
@@ -230,7 +264,7 @@ class MessagesPlugin(Plugin):
         @register_command(self=self, id='export_attachments',
             help="export all conversation attachments into a <directory>/conversation name : ' export_attachments [<types> : empty - all types, not empty - example: \"photo video audio doc link\"] [<directory>] [<conv index / conv id>]'")
         def export_attachments_cmd(types="photo video audio doc link", directory=None, conv_selection=None):
-            if directory==None:
+            if directory is None:
                 directory = "~/Downloads/vk exports"
 
             types = types.split(" ")
@@ -256,6 +290,12 @@ class MessagesPlugin(Plugin):
                         finished = True
                         break
                 return attachments
+
+            def gather_all_messages(peer_id):
+                finished = False
+                messages = []
+                start_from = 0
+                count = 200
 
             def download_resources(resources:list[Resource], directory=None, pbar_desc=""):
                 resources = sorted(resources, key=lambda x: x.date.timestamp() if x.date is not None else 0)
@@ -283,4 +323,54 @@ class MessagesPlugin(Plugin):
                 time.sleep(1)
 
             Resource.clean_links_file(dir_path/"link")
-                
+
+        @register_command(self=self, id='export_messages',
+            help="export all messages into a json file <filepath> : ' export_messages [<filepath>] [<conv index / conv id>]'")
+        def export_messages_cmd(filepath=None, conv_selection=None):
+            peer_id = self.get_conversation_id_from_arg(conv_selection)
+            selected_conv = self.get_conversation_by_id(peer_id)
+
+            if filepath is None:
+                dir_path = Path("~/Downloads/vk exports")
+                dir_path = dir_path / selected_conv['title']
+                filepath = dir_path / "messages.json"
+            else:
+                filepath = Path(filepath).resolve()
+
+            filepath = get_existing_path(filepath)
+
+            def gather_all_messages(peer_id):
+                finished = False
+                messages = []
+                start_from = 0
+                count = 200
+                total_messages_count = self.vk_api.method("messages.getHistory", peer_id=peer_id, count=1)['count']
+                pbar = tqdm(total=total_messages_count, desc="gathering messages")
+                while not finished:
+                    pbar.display()
+                    result = self.vk_api.method("messages.getHistory", peer_id=peer_id, count=count, offset=start_from, rev=1)
+                    got_messages = result["items"]
+                    if len(got_messages) > 0:
+                        messages += got_messages
+                        start_from += len(got_messages)
+                        pbar.update(len(got_messages))
+                        pbar.set_postfix_str(f'"{got_messages[-1]["text"][:20]}"')
+                        time.sleep(0.2)
+                    else:
+                        finished = True
+                        break
+                pbar.close()
+                return messages
+
+            print(f"exported messages can be found in file \"{filepath.as_posix()}\"")
+            messages = gather_all_messages(peer_id)
+            with filepath.open("w", encoding="utf-8") as file:
+                json.dump(messages, file, indent = 2 if len(messages)<1000 else None, ensure_ascii=False)
+
+            filepath = filepath.with_name(filepath.name.replace(".json", ".txt"))
+            messages_text_history = ""
+            for mes in tqdm(messages, desc=f"saving text version in file \"{filepath.name}\""):
+                messages_text_history += self.print_message_to_str(mes)
+                messages_text_history += "\n"
+            filepath.write_text(messages_text_history, encoding="utf-8")
+            print("done.")

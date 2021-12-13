@@ -31,6 +31,8 @@ vk_cli> _messages
 
 vk_cli _messages> help
 
+characters:
+  ";" : separates multiple commands
 global commands:
   .. : unselect plugin : ' .. '
   help : show commands and plugins overview : ' help '
@@ -51,6 +53,7 @@ _messages commands list:
   compare_names : help TODO: compare names : ' compare_names <names separated with coma> [<conv index / conv id>]'
   show_scrolling_message : sends a message that will be edited and animated as scrolling text : ' show_scrolling_message <message> <title> [<conv index / conv id>]'
   export_attachments : export all conversation attachments into a <directory>/conversation name : ' export_attachments [<types> : empty - all types, not empty - example: "photo video audio doc link"] [<directory>] [<conv index / conv id>]'
+  export_messages : export all messages into a json file <filepath> : ' export_messages [<filepath>] [<conv index / conv id>]'
 
 vk_cli _messages> browse 10 10
 

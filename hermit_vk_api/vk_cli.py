@@ -64,9 +64,11 @@ class Prompt(Cmd):
         args = shlex.split(text)
         return args
 
-    def default(self, inp):
-        args = self.text_to_args(inp)
-        self.on_input(args)
+    def default(self, inp:str):
+        calls = inp.split(";")
+        for call in calls:
+            args = self.text_to_args(call)
+            self.on_input(args)
 
     def do_help(self, inp):
         self.default("help " + inp)
@@ -146,6 +148,8 @@ class VK_CLI(CommandAgent):
 
     def cli_help_print(self):
         print()
+
+        print(f"characters: \n  \";\" : separates multiple commands")
 
         print("global commands:")
         for command_id in self._commands.keys():
