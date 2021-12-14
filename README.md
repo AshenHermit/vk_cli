@@ -8,7 +8,7 @@ Authorization done with an implicit flow, a browser is used to automate this pro
 * [python 3.9+](https://www.python.org/downloads/)
 * [chrome](https://www.google.com/intl/en_us/chrome/) and [chromedriver](https://chromedriver.chromium.org/) (in PATH) - for fast implicit flow authorization
 
-`chromedriver` can be downloaded in *windows* with batch file
+`chromedriver` can be downloaded on *windows* with batch file
 ```
 > chromedriver/download_chromedriver.bat
 ```
