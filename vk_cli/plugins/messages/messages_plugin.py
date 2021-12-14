@@ -76,7 +76,7 @@ class MessagesPlugin(Plugin):
         except:
             user = {"last_name": f"[{user_id}]", "first_name": ""}
         text = ""
-        text+= f"{sidnt}--- {user['last_name'] + ' ' + user['first_name']} --- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --"
+        text+= f"{sidnt}--- {user['first_name'] + ' ' + user['last_name']} --- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --"
         text+= f"\n{sidnt}{content}"
         text+= f"\n{sidnt}------------"
         return text

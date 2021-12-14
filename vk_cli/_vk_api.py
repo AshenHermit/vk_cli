@@ -51,7 +51,15 @@ class Resource:
         if self.url.find("http")==-1: return
         if filepath.exists(): return
 
-        response = requests.get(self.url, stream=True)
+        retries = 4
+        while retries>0:
+            try:
+                response = requests.get(self.url, stream=True)
+                retries = 0
+                break
+            except:
+                retries-=1
+
         try:
             file = filepath.open("wb")
             for chunk in response.iter_content(chunk_size=1024):
@@ -76,10 +84,13 @@ class Resource:
         filepath.write_text(json.dumps(links, indent=2, ensure_ascii=False), encoding='utf-8')
 
     def download(self, directory:Path):
-        if self.media_type == "link":
-            self.save_link(directory)
-        else:
-            self.download_from_url(directory)
+        try:
+            if self.media_type == "link":
+                self.save_link(directory)
+            else:
+                self.download_from_url(directory)
+        except:
+            traceback.print_exc(1)
 
     @staticmethod
     def clean_links_file(directory:Path):
@@ -168,7 +179,12 @@ class Resource:
         constructors["doc"] = Resource.from_doc
         constructors["link"] = Resource.from_link
         if attach_type in constructors:
-            return constructors[attach_type](attach)
+            try:
+                res = constructors[attach_type](attach)
+                return res
+            except:
+                traceback.print_exc(1)
+                
         return Resource()    
     
 class VkSession(object):
