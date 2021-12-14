@@ -46,11 +46,11 @@ class MessagesPlugin(Plugin):
                 title = user['first_name'] + " " + user['last_name']
             conv['title'] = title
 
-    def attachments_to_text(self, attachments):
+    def attachments_to_text(self, attachments, line_prefix=""):
         text = ""
         for attach in attachments:
             res = Resource.from_attachment(attach)
-            text += f"{res.media_type} : {res.name} : {res.url}"
+            text += f"{line_prefix}{res.media_type} : {res.name} : {res.url}"
             if attach != attachments[-1]:
                 text+="\n"
         return text
@@ -61,7 +61,7 @@ class MessagesPlugin(Plugin):
         date = message['date']
         content = "  "+message['text'].replace("\n", "\n"+sidnt+"  ")
         if len(message['attachments'])>0:
-            content += f"\n{sidnt}  "+self.attachments_to_text(message['attachments'])
+            content += f"\n"+self.attachments_to_text(message['attachments'], sidnt+"  ")
         if 'fwd_messages' in message and len(message['fwd_messages'])>0:
             fwd_messages = message['fwd_messages']
             content += f"\n{sidnt}{' '*idntl}[forwarded messages]:\n"
@@ -71,7 +71,10 @@ class MessagesPlugin(Plugin):
 
         user_id = message['from_id']
 
-        user = self.vk_api.get_user_profile(user_id) if user_id != 0 else {'last_name': '', 'first_name': 'Me'}
+        try:
+            user = self.vk_api.get_user_profile(user_id) if user_id != 0 else {'last_name': '', 'first_name': 'Me'}
+        except:
+            user = {"last_name": f"[{user_id}]", "first_name": ""}
         text = ""
         text+= f"{sidnt}--- {user['last_name'] + ' ' + user['first_name']} --- {datetime.datetime.utcfromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')} --"
         text+= f"\n{sidnt}{content}"

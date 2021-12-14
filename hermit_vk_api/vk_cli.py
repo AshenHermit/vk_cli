@@ -7,6 +7,8 @@ from hermit_vk_api.utils import *
 import re
 import shlex
 
+CWD = (Path(__file__) / "..").resolve()
+
 class Prompt(Cmd):
     def __init__(self, on_input):
         self.prompt_prefix = 'vk_cli'
@@ -85,7 +87,7 @@ class VK_CLI(CommandAgent):
 
         self.vk_api : VkSession = None
 
-        self.settings_file_path = "settings.json"
+        self.settings_file_path:Path = (CWD / "../settings.json").resolve()
         self.settings = {
             'plugins_path': 'hermit_vk_api/plugins',
             'chromedriver_path': 'chromedriver/chromedriver.exe'
@@ -107,7 +109,7 @@ class VK_CLI(CommandAgent):
             print("[Keyboard Interrupt]")
 
     def load_settings(self):
-        settings_path = Path(self.settings_file_path)
+        settings_path = self.settings_file_path
 
         if settings_path.exists():
             try:
@@ -121,13 +123,14 @@ class VK_CLI(CommandAgent):
 
     def load_plugins(self):
         if self.vk_api:
-            self.plugins = load_plugins(self.settings['plugins_path'], self, self.vk_api)
+            plugins_dir = (CWD / ("../"+self.settings['plugins_path'])).resolve()
+            self.plugins = load_plugins(plugins_dir, CWD, self, self.vk_api)
             for plugin in self.plugins:
                 self.plugin_by_id[plugin.id] = plugin
         
 
     def save_settings(self):
-        settings_path = Path(self.settings_file_path)
+        settings_path = self.settings_file_path
         settings_path.write_text(json.dumps(self.settings))
 
     def startup_log_in(self):

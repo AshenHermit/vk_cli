@@ -1,6 +1,7 @@
 import os
 import importlib
 from functools import partial, wraps
+from pathlib import Path
 import hermit_vk_api
 import traceback
 import sys
@@ -18,17 +19,18 @@ def get_plugins_in_module(module):
     subclasses = list(filter(attr_is_plugin_class, subclasses))
     return subclasses
 
-def load_plugins(directory, vk_cli, vk_api):
-    dir_list = os.listdir(directory)
+def load_plugins(plugins_directory:Path, app_directory:Path, vk_cli, vk_api):
+    dir_list = os.listdir(plugins_directory)
     plugins = []
     
     plugin_classes = []
     for s in dir_list:
-        s = directory + '/' + s
+        relative_path = plugins_directory.as_posix()[len((app_directory/'..').resolve().as_posix())+1:]
+        s = relative_path + '/' + s
         module_name = s.replace('/', '.')
 
         try:
-            if os.path.isdir(s):
+            if s.find(".")==-1:
                 if module_name in sys.modules:
                     for k in list(sys.modules.keys()):
                         if k.startswith(module_name):
@@ -36,7 +38,10 @@ def load_plugins(directory, vk_cli, vk_api):
                 module = importlib.import_module(module_name)
                 plugin_classes += get_plugins_in_module(module)
         except ModuleNotFoundError:
-            print(f"no module '{s}'")
+            print(f"no module '{module_name}' '{s}'")
+        except:
+            traceback.print_exc()
+            
 
     for plugin_class in plugin_classes:
         plugin = plugin_class()
