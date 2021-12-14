@@ -91,3 +91,12 @@ def get_existing_path(path:str) -> Path:
 def normalize_filepath_name(filepath:Path):
     filepath = filepath.with_name(re.sub(r'[^\w\-_\. ]', '_', filepath.name))
     return filepath
+
+def get_number_translation_id(value):
+    tr_id = 0
+    rdigit = int(str(value)[-1])
+    vlen = len(str(value))
+    if (vlen>=2 and int(str(value)[-2])!=1) or vlen==1:
+        if rdigit<=4 and rdigit>1: tr_id = 1
+        if rdigit==1: tr_id = 2
+    return tr_id

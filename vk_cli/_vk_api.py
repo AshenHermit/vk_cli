@@ -119,6 +119,8 @@ class Resource:
         res.name = id
         res.date = datetime.fromtimestamp(data['date'])
 
+        if not "files" in data: return res
+        
         files = data["files"]
         if "external" in files:
             res.media_type = "link"

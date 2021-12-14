@@ -8,6 +8,8 @@ import math
 from tqdm import tqdm
 from pathlib import Path
 
+#TODO: needs good refactor, and to split code into multiple files
+
 class MessagesPlugin(Plugin):
     def __init__(self):
         super().__init__()
@@ -100,8 +102,8 @@ class MessagesPlugin(Plugin):
     def initialize_commands_decorators(self):
 
         @register_command(self=self, id='browse',
-            help="browse conversations and view messages : 'browse [<count>] [<offset>]'")
-        def browse_cmd(count=0, offset=0):
+            help="browse conversations and view messages : 'browse [<offset>] [<count>]'")
+        def browse_cmd(offset=0, count=0):
             count = int(count)
             offset = int(offset)
             convs = self.vk_api.method("messages.getConversations", fields='first_name,last_name,name', offset=offset)
@@ -294,12 +296,6 @@ class MessagesPlugin(Plugin):
                         break
                 return attachments
 
-            def gather_all_messages(peer_id):
-                finished = False
-                messages = []
-                start_from = 0
-                count = 200
-
             def download_resources(resources:list[Resource], directory=None, pbar_desc=""):
                 resources = sorted(resources, key=lambda x: x.date.timestamp() if x.date is not None else 0)
                 pbar = tqdm(resources, desc=pbar_desc)
@@ -328,7 +324,7 @@ class MessagesPlugin(Plugin):
             Resource.clean_links_file(dir_path/"link")
 
         @register_command(self=self, id='export_messages',
-            help="export all messages into a json file <filepath> : ' export_messages [<filepath>] [<conv index / conv id>]'")
+            help="export all messages into json file <filepath> : ' export_messages [<filepath>] [<conv index / conv id>]'")
         def export_messages_cmd(filepath=None, conv_selection=None):
             peer_id = self.get_conversation_id_from_arg(conv_selection)
             selected_conv = self.get_conversation_by_id(peer_id)
@@ -377,3 +373,71 @@ class MessagesPlugin(Plugin):
                 messages_text_history += "\n"
             filepath.write_text(messages_text_history, encoding="utf-8")
             print("done.")
+
+        @register_command(self=self, id='count_stats',
+            help="count attachments, messages and save dictionary into json file <filepath> : ' count_stats [<filepath>] [<conv index / conv id>]'")
+        def count_stats_cmd(filepath=None, conv_selection=None):
+            media_types = "photo video audio doc link".split(" ")
+            #TODO: (reusing code)
+
+            peer_id = self.get_conversation_id_from_arg(conv_selection)
+            selected_conv = self.get_conversation_by_id(peer_id)
+
+            if filepath is None:
+                dir_path = Path("~/Downloads/vk exports")
+                dir_path = dir_path / selected_conv['title']
+                filepath = dir_path / "stats.json"
+            else:
+                filepath = Path(filepath).resolve()
+
+            filepath = get_existing_path(filepath)
+
+            stats = {}
+
+            def count_attachments(peer_id, media_type):
+                count = 0
+                start_from = None
+                while True:
+                    try:
+                        result = self.vk_api.method("messages.getHistoryAttachments", 
+                            peer_id=peer_id, media_type=media_type, start_from=start_from)
+                        items_len = len(result['items'])
+                        if items_len>0:
+                            count += items_len
+                            start_from = result['next_from']
+                        else:
+                            break
+                    except:
+                        break
+                return count
+            
+            stats_text = ""
+            for media_type in media_types:
+                print(f"counting '{media_type}' attachments...")
+                count = count_attachments(peer_id, media_type)        
+                stats[media_type] = count
+
+            result = self.vk_api.method("messages.getHistory", peer_id=peer_id)
+            count = result['count']
+            stats['messages'] = count
+
+            translation = {
+                "messages": ["сообщений", "сообщения", "сообщение"],
+                "photo": ["пикч", "пикчи", "пикча"],
+                "video": ["видосов", "видоса", "видос"],
+                "audio": ["аудио", "аудио", "аудио"],
+                "doc": ["документов", "документа", "документ"],
+                "link": ["ссылок", "ссылки", "ссылка"],
+            }
+            stats_text += ", ".join(list(map(
+                lambda k: f"{stats[k]} {translation[k][get_number_translation_id(stats[k])]}", 
+                translation.keys())))
+            f", {stats['messages']}"
+            stats['stats_text'] = stats_text
+            print(stats_text)
+
+            print(f"writing stats into a file \"{filepath.as_posix()}\"")
+            filepath.write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding='utf-8')
+            print("done.")
+
+# export_attachments; export_messages; count_stats
