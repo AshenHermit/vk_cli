@@ -2,7 +2,7 @@ import os
 import importlib
 from functools import partial, wraps
 from pathlib import Path
-import hermit_vk_api
+import vk_cli
 import traceback
 import sys
 import inspect
@@ -99,8 +99,8 @@ class CommandAgent():
 class Plugin(CommandAgent):
     def __init__(self):
         self.id = '_base'
-        self.vk_cli : hermit_vk_api.VK_CLI = None
-        self.vk_api : hermit_vk_api.VkSession = None
+        self.vk_cli : vk_cli.VK_CLI = None
+        self.vk_api : vk_cli.VkSession = None
 
         super().__init__()
     

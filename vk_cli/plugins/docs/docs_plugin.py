@@ -1,4 +1,4 @@
-from hermit_vk_api import *
+from vk_cli import *
 import datetime
 
 class Docs(Plugin):

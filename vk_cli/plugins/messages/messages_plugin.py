@@ -1,7 +1,7 @@
 import json
 from os import name
-from hermit_vk_api import *
-from hermit_vk_api._vk_api import Resource
+from vk_cli import *
+from vk_cli._vk_api import Resource
 import datetime
 import time
 import math
@@ -91,7 +91,7 @@ class MessagesPlugin(Plugin):
                 self._call_command(["browse"])
             else:
                 pass
-            selection = self.conversation_by_selection[str(selection)]['id']
+            selection = self.conversation_by_selection[str(selection)]['peer']['id']
         return selection
     def get_conversation_id_from_arg(self, conv_arg=None):
         if conv_arg == None: return self.selected_conv_id

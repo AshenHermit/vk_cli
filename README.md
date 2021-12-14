@@ -6,8 +6,7 @@ Authorization done with an implicit flow, a browser is used to automate this pro
 
 ## Requirements
 * [python 3.9+](https://www.python.org/downloads/)
-* [chrome](https://www.google.com/intl/en_us/chrome/) - for fast implicit flow authorization
-
+* [chrome](https://www.google.com/intl/en_us/chrome/) and [chromedriver](https://chromedriver.chromium.org/) (in PATH) - for fast implicit flow authorization
 ## Installation
 ```
 Downloading chromedriver (for windows)
@@ -21,7 +20,14 @@ Installing requirements
 ```
 > python vk_cli.py
 or
-> cmd/vk_cli.bat
+> cmd\vk-cli.bat
+```
+
+## Installing in system
+```
+> python setup.py install
+and run with
+> vk-cli
 ```
 
 ## Usage session example

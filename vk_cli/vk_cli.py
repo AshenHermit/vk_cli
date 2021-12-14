@@ -1,9 +1,9 @@
 from cmd import Cmd
 import json
 from pathlib import Path
-from hermit_vk_api._vk_api import VkSession, invalid_password
-from hermit_vk_api.plugin_utils import load_plugins, register_command, CommandAgent
-from hermit_vk_api.utils import *
+from vk_cli._vk_api import VkSession, invalid_password
+from vk_cli.plugin_utils import load_plugins, register_command, CommandAgent
+from vk_cli.utils import *
 import re
 import shlex
 
@@ -89,7 +89,7 @@ class VK_CLI(CommandAgent):
 
         self.settings_file_path:Path = (CWD / "../settings.json").resolve()
         self.settings = {
-            'plugins_path': 'hermit_vk_api/plugins',
+            'plugins_path': 'vk_cli/plugins',
             'chromedriver_path': 'chromedriver/chromedriver.exe'
         }
 
@@ -110,6 +110,7 @@ class VK_CLI(CommandAgent):
 
     def load_settings(self):
         settings_path = self.settings_file_path
+        print(f"settings located in \"{self.settings_file_path.as_posix()}\"")
 
         if settings_path.exists():
             try:

@@ -11,7 +11,7 @@ from vk_api.vk_api import VkApi
 import traceback
 import os
 
-from hermit_vk_api.utils import get_extension_from_url, make_dirs, normalize_filepath_name
+from vk_cli.utils import get_extension_from_url, make_dirs, normalize_filepath_name
 
 class invalid_password(Exception):
     def __init__(self, value): self.value = value
@@ -209,10 +209,10 @@ class VkSession(object):
 
     def get_token_from_vk_config(self):
         filepath = self.get_vk_config_path()
-        with filepath.open("r", encoding="utf-8") as file:
-            config = json.load(file)
+        if not filepath.exists(): return None
         try:
-            
+            with filepath.open("r", encoding="utf-8") as file:
+                config = json.load(file)
             app_key = f"app{self.app_id}"
             app = config[self.login]["token"][app_key]
             scopes = list(app.values())
@@ -223,15 +223,21 @@ class VkSession(object):
             os.remove(filepath.as_posix())
         return None
 
-
     def auth(self):
+        print("authorizing...")
         access_token = self.get_token_from_vk_config()
         if access_token is None:
             access_token = self.get_token_with_implicit_flow()
+
+        self.vk_session = VkApi(
+            login=self.login, password=self.password, 
+            app_id=self.app_id, token=access_token, 
+            captcha_handler=self.captcha_handler, 
+            config_filename = self.get_vk_config_path())
         
-        self.vk_session = VkApi(login=self.login, password=self.password, app_id=self.app_id, token=access_token, captcha_handler=self.captcha_handler)
         try:
             self.vk_session.auth()
+            print(f"vk config located in \"{self.get_vk_config_path().as_posix()}\"")
         except Exception as e:
             traceback.print_exc()
             self.vk_session = None

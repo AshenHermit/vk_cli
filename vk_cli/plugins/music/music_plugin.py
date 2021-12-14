@@ -1,4 +1,4 @@
-from hermit_vk_api import *
+from vk_cli import *
 import datetime
 import m3u8
 
@@ -12,4 +12,4 @@ class Music(Plugin):
         @register_command(self=self, id='download',
             help="download music file : 'download <audio id>'")
         def cmd_cmd(args):
-            playlist = 
+            pass
