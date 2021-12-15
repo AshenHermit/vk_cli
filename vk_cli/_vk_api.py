@@ -283,7 +283,8 @@ class VkSession(object):
             users = self.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))), extended=1, fields='screen_name,photo_max_orig,photo_id')
             photos = []
             try:
-                photos = self.method("photos.getById", photos=",".join(list(map(lambda x: x['photo_id'], users))))
+                photo_ids = list(map(lambda x: x['photo_id'] if 'photo_id' in x else "344928203_457259835", users))
+                photos = self.method("photos.getById", photos=",".join(photo_ids))
             except:
                 pass
 
