@@ -287,14 +287,14 @@ class VkSession(object):
                 photos = self.method("photos.getById", photos=",".join(photo_ids))
             except:
                 pass
-
             
             for i,user in enumerate(users):
                 self.users[str(user['id'])] = user
                 if 'deactivated' in user: 
                     user['screen_name'] = 'id'+str(user['id'])
-                photo_res = Resource.from_photo(photos[i])
-                user['photo_url'] = photo_res.url
+                # photo_res = Resource.from_photo(photos[i])
+                # user['photo_url'] = photo_res.url
+                user['photo_url'] = ""
                 self.users[str(user['screen_name'])] = user
 
 

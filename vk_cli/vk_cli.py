@@ -82,6 +82,8 @@ class Prompt(Cmd):
 class VK_CLI(CommandAgent):
     def __init__(self):
         print("initializng vk cli...")
+        
+        self.should_exit = False
 
         self.prompt = Prompt(self.on_input)
 
@@ -100,13 +102,20 @@ class VK_CLI(CommandAgent):
 
         super().__init__()
 
-    def start(self):
+    def start(self, command=None):
         self.load_settings()
         self.startup_log_in()
 
-        try: self.prompt.cmdloop()
-        except KeyboardInterrupt:
-            print("[Keyboard Interrupt]")
+        if command is not None:
+            self.run_command_string(command)
+
+        if not self.should_exit:
+            try: self.prompt.cmdloop()
+            except KeyboardInterrupt:
+                print("[Keyboard Interrupt]")
+
+    def run_command_string(self, command:str):
+        self.prompt.default(command)
 
     def load_settings(self):
         settings_path = self.settings_file_path
@@ -261,6 +270,9 @@ class {to_camel_case(id)}(Plugin):
         
         
     def on_input(self, args):
+        if args[0] == "exit":
+            self.should_exit = True
+
         if self.vk_api:
             self.prompt_input(args)
         else:

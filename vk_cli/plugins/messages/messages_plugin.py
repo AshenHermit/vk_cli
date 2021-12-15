@@ -102,11 +102,11 @@ class MessagesPlugin(Plugin):
     def initialize_commands_decorators(self):
 
         @register_command(self=self, id='browse',
-            help="browse conversations and view messages : 'browse [<offset>] [<count>]'")
-        def browse_cmd(offset=0, count=0):
+            help="browse conversations and view messages, if filepath defined, save list into file : 'browse [<offset>] [<count>] [<filepath>]'")
+        def browse_cmd(offset=0, count=10, filepath=None):
             count = int(count)
             offset = int(offset)
-            convs = self.vk_api.method("messages.getConversations", fields='first_name,last_name,name', offset=offset)
+            convs = self.vk_api.method("messages.getConversations", fields='first_name,last_name,name', offset=offset, count=count)
             convs = convs["items"]
             if count > 0:
                 convs = convs[:count]
@@ -117,11 +117,24 @@ class MessagesPlugin(Plugin):
             
             self.conversation_by_selection = {str(i): conv for i,conv in enumerate(convs)}
             self.conversation_by_id.update({str(conv['peer']['id']): conv for conv in convs})
-            
-            for i, conv in enumerate(convs[:10]):
-                head = string_with_fixed_length(f"[{i}] [ {conv['peer']['id']} ]", 20)
-                print(f"{head} {conv['title']}")
 
+            print_text = ""
+            
+            for i, conv in enumerate(convs[:count]):
+                head = string_with_fixed_length(f"[{i}] [ {conv['peer']['id']} ]", 20)
+                print_text+=f"{head} {conv['title']}"
+                print_text+="\n"
+
+            if filepath is not None:
+                filepath = Path(filepath)
+                filepath = get_existing_path(filepath)
+                try:
+                    filepath.write_text(print_text, encoding='utf-8')
+                    print(f"conversations saved into file \"{filepath.as_posix()}\"")
+                except:
+                    pass
+            else:
+                print(print_text)
 
         @register_command(self=self, id='chat',
             help="[out of order] enter conversation : 'chat <conv index / conv id>'")
