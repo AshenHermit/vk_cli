@@ -106,13 +106,27 @@ class MessagesPlugin(Plugin):
         def browse_cmd(offset=0, count=10, filepath=None):
             count = int(count)
             offset = int(offset)
-            convs = self.vk_api.method("messages.getConversations", fields='first_name,last_name,name', offset=offset, count=count)
-            convs = convs["items"]
-            if count > 0:
-                convs = convs[:count]
 
-            convs = list(map(lambda x: x['conversation'], convs))
+            def gather_all_conversations(offset=0, count=10):
+                finished = False
+                retrieve_count = min(200, count)
+                start_from = 0
+                convs = []
+                while not finished:
+                    data = self.vk_api.method("messages.getConversations", fields='first_name,last_name,name', 
+                        offset=start_from, count=retrieve_count)
+                    if len(data['items']) > 0:
+                        convs += data['items']
+                        start_from += retrieve_count
+                        if len(convs) >= count:
+                            finished = True
+                    else:
+                        finished = True
 
+                convs = list(map(lambda x: x['conversation'], convs))
+                return convs[:count]
+                    
+            convs = gather_all_conversations(offset, count)
             self.setup_conversations(convs)
             
             self.conversation_by_selection = {str(i): conv for i,conv in enumerate(convs)}
@@ -330,7 +344,7 @@ class MessagesPlugin(Plugin):
 
                 download_resources( 
                     resources, dir_path,
-                    pbar_desc=f"--- downloading gathered attachments")
+                    pbar_desc=f"--- downloading '{media_type}' attachments")
 
                 time.sleep(1)
 
