@@ -281,7 +281,12 @@ class VkSession(object):
         ids = list(filter(lambda id: id not in self.users, ids))
         if len(ids)>0:
             users = self.method('users.get', user_ids=",".join(list(map(lambda x: str(x), ids))), extended=1, fields='screen_name,photo_max_orig,photo_id')
-            photos = self.method("photos.getById", photos=",".join(list(map(lambda x: x['photo_id'], users))))
+            photos = []
+            try:
+                photos = self.method("photos.getById", photos=",".join(list(map(lambda x: x['photo_id'], users))))
+            except:
+                pass
+
             
             for i,user in enumerate(users):
                 self.users[str(user['id'])] = user
