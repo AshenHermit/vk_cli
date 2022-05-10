@@ -100,3 +100,8 @@ def get_number_translation_id(value):
         if rdigit<=4 and rdigit>1: tr_id = 1
         if rdigit==1: tr_id = 2
     return tr_id
+
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]

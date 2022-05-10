@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import cache
 from pathlib import Path
 import requests
 import lxml.html
@@ -199,6 +200,7 @@ class VkSession(object):
 
         self.app_id = 6121396 # vk admin
         self.scope = 1073737727
+        self.api = None
 
         self.auth()
 
@@ -255,6 +257,7 @@ class VkSession(object):
         
         try:
             self.vk_session.auth()
+            self.api = self.vk_session.get_api()
             print(f"vk config located in \"{self.get_vk_config_path().as_posix()}\"")
         except Exception as e:
             traceback.print_exc()
@@ -266,6 +269,14 @@ class VkSession(object):
         
         result = self.vk_session.method(method, params)
         return result
+
+    @property
+    @cache
+    def current_user_id(self):
+        return self.method('users.get')[0]['id']
+
+    def __getattr__(self, key:str):
+        return getattr(self.api, key, None)
 
     def captcha_handler(self, captcha):
         """ При возникновении капчи вызывается эта функция и ей передается объект
@@ -296,7 +307,6 @@ class VkSession(object):
                 # user['photo_url'] = photo_res.url
                 user['photo_url'] = ""
                 self.users[str(user['screen_name'])] = user
-
 
     def get_user_profile(self, id:int or str):
         id = str(id)

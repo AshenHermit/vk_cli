@@ -1,12 +1,16 @@
 import json
 from os import name
 from vk_cli import *
+from vk_cli import utils
 from vk_cli._vk_api import Resource
 import datetime
 import time
 import math
 from tqdm import tqdm
 from pathlib import Path
+
+import concurrent.futures as cf
+from concurrent.futures import ThreadPoolExecutor
 
 #TODO: needs good refactor, and to split code into multiple files
 
@@ -151,7 +155,7 @@ class MessagesPlugin(Plugin):
                 print(print_text)
 
         @register_command(self=self, id='chat',
-            help="[out of order] enter conversation : 'chat <conv index / conv id>'")
+            help="enter conversation : 'chat <conv index / conv id>'")
         def chat_cmd(conv_selection=None):
             #TODO: needs reefactor
             peer_id = self.get_conversation_id_from_arg(conv_selection)
@@ -181,11 +185,38 @@ class MessagesPlugin(Plugin):
                 self.print_message(mes_data)
         
         @register_command(self=self, id='send_raw_attachments',
-            help="send raw attachments : ' send \"<attachments>\" '")
+            help="send raw attachments : ' send_raw_attachments \"<attachments>\" '")
         def send_raw_attachment_cmd(*args):
             if self.selected_conv_id:
                 attachments = args[:]
                 self.vk_api.method('messages.send', peer_id=self.selected_conv_id, message="", random_id=0, attachment=",".join(attachments))
+                mes_data = {
+                    "date": datetime.datetime.now().timestamp(), 
+                    "text": "", 
+                    "from_id": 0, 
+                    "attachments": attachments}
+                self.print_message(mes_data)
+        
+        @register_command(self=self, id='send_doc',
+            help="send document with file : ' send_doc \"<filepath>\" <type - doc, graffiti, audio_message>'")
+        def send_doc_cmd(filepath, doc_type="doc", *args):
+            peer_id = self.selected_conv_id
+            if peer_id:
+                attachments = args[:]
+                upl_server_result = self.vk_api.method('docs.getMessagesUploadServer', type=doc_type, peer_id=peer_id)
+                upload_url = upl_server_result["upload_url"]
+
+                file = Path(filepath).expanduser().resolve()
+                res = self.vk_api.vk_session.http.post(upload_url, files={'file': file.open('rb')})
+                res_data = json.loads(res.text)
+                doc_file = res_data["file"]
+
+                save_result = self.vk_api.method('docs.save', file=doc_file, title=file.name, tags="")
+                doc_object = save_result[save_result['type']]
+                attachment = f"doc{doc_object['owner_id']}_{doc_object['id']}"
+                attachments = [attachment]
+
+                self.vk_api.method('messages.send', peer_id=peer_id, message="", random_id=0, attachment=",".join(attachments))
                 mes_data = {
                     "date": datetime.datetime.now().timestamp(), 
                     "text": "", 
@@ -314,6 +345,7 @@ class MessagesPlugin(Plugin):
                     result = self.vk_api.method("messages.getHistoryAttachments", 
                         peer_id=peer_id, media_type=media_type, start_from=start_from)
                     attachs = list(map(lambda x: x["attachment"], result["items"]))
+                    
                     if len(attachs) > 0:
                         attachments+=(attachs)
                         start_from = result['next_from']
@@ -467,4 +499,62 @@ class MessagesPlugin(Plugin):
             filepath.write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding='utf-8')
             print("done.")
 
+        @register_command(self=self, id='send_images_in_dir',
+            help="send all images in directory <dirpath> : ' send_images_in_dir [<dirpath>] [<conv index / conv id>]'")
+        def send_images_in_dir(dirpath=None, conv_selection=None):
+            peer_id = self.get_conversation_id_from_arg(conv_selection)
+            dirpath = Path(dirpath)
+            import glob
+            def gather_files(exts):
+                files = []
+                for ext in exts: files += list(dirpath.rglob("*."+ext))
+                return files
+            files = gather_files(["png", "jpg"])
+            from vk_api import VkUpload
+            vk_upload = VkUpload(self.vk_api.vk_session)
+
+            def send_images(files):
+                print("sending images...")
+                pbar = tqdm(total=len(files))
+                for files_batch in utils.batch(files, 10):
+                    files_batch = list(map(str, files_batch))
+                    photos = vk_upload.photo_messages(files_batch)
+                    def get_photo_attach(photo):
+                        owner_id = photo['owner_id']
+                        photo_id = photo['id']
+                        access_key = photo['access_key']
+                        return f'photo{owner_id}_{photo_id}_{access_key}'
+                    attachs = list(map(get_photo_attach, photos))
+                    self.vk_api.messages.send(peer_id=peer_id, random_id=0, attachment=",".join(attachs))
+                    pbar.update(len(photos))
+                pbar.close()
+
+            send_images(files)
+            print("done")
+
+        @register_command(self=self, id='leave_convs',
+            help="leave from all specified conversations : 'leave_convs <conv1> <conv2> ...'")
+        def leave_convs_cmd(*args):
+            user_id = self.vk_api.current_user_id
+            def leave(local_id):
+                self.vk_api.messages.removeChatUser(chat_id=local_id, user_id=user_id)
+
+            peer_ids = list(map(lambda x: self.get_conversation_id_from_arg(x), args))
+            local_ids = self.vk_api.messages.getConversationsById(peer_ids=peer_ids)['items']
+            local_ids = list(map(lambda x: x['peer']['local_id'], local_ids))
+            with ThreadPoolExecutor(max_workers=4) as p:
+                futures = {p.submit(leave, loc_id) for loc_id in local_ids}
+                for future in cf.as_completed(futures):
+                    res = future.result()
+
+
 # export_attachments; export_messages; count_stats
+
+# for i, url in enumerate(urls):
+#     filename = Path(urllib.parse.urlsplit(url).path).name
+#     if filename.strip() == "":
+#         filename = f"{i}.mp4"
+#     filepath = Path("~/Downloads/09.04.2022").expanduser().resolve() / filename
+#     filepath.parent.mkdir(parents=True, exist_ok=True)
+#     res = self.vk_api.vk_session.http.get(url)
+#     filepath.write_bytes(res.content)
